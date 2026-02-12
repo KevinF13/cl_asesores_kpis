@@ -1,0 +1,107 @@
+/* Variables para colores corporativos */
+:root {
+    --primary-blue: #0056b3;
+    --bg-gray: #f4f7f6;
+    --text-dark: #333;
+    --border-color: #ddd;
+}
+
+body {
+    background-color: var(--bg-gray);
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: 95%;
+    max-width: 1000px;
+    margin: 1rem auto;
+    padding: 1.5rem;
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+}
+
+.title {
+    font-size: 1.5rem;
+    color: var(--primary-blue);
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.kpi-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Diseño para tablets y laptops */
+@media (min-width: 768px) {
+    .kpi-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr; /* Dos columnas */
+        gap: 20px;
+    }
+    
+    .full-width {
+        grid-column: span 2;
+    }
+    
+    .title {
+        font-size: 2rem;
+    }
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: var(--text-dark);
+}
+
+.form-group input, 
+.form-group select, 
+.form-group textarea {
+    padding: 12px;
+    font-size: 1rem; /* Evita zoom automático en iPhone */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.readonly-field {
+    background-color: #e9ecef;
+    color: #6c757d;
+    border: 1px solid #ced4da;
+}
+
+/* Estilo del botón */
+.submit-btn {
+    background-color: var(--primary-blue);
+    color: white;
+    padding: 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: transform 0.2s, background 0.3s;
+}
+
+.submit-btn:active {
+    transform: scale(0.98); /* Feedback visual al tocar en móviles */
+}
+
+@media (min-width: 768px) {
+    .submit-btn {
+        grid-column: span 2;
+    }
+}
