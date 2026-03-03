@@ -110,3 +110,30 @@
     }
     .form-container { padding: 15px; margin: 10px; }
 }
+
+.kpi-main-selector {
+    font-size: 1.2rem !important;
+    padding: 15px !important;
+    border: 2px solid var(--primary-color) !important;
+    background: #f0f7ff !important;
+    color: var(--primary-color) !important;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 10px;
+}
+
+.main-label {
+    font-size: 1.1rem !important;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+/* Animación de entrada para los campos dinámicos */
+.field-group {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

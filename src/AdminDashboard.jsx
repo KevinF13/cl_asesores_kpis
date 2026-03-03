@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-    LabelList, ComposedChart, AreaChart, Area, Line, PieChart, Pie, Cell, LineChart 
+    ComposedChart, AreaChart, Area, Line, PieChart, Pie, Cell
 } from 'recharts';
 
 const AdminDashboard = () => {
     const [registros, setRegistros] = useState([]);
     const [filtroAsesor, setFiltroAsesor] = useState('todos');
+    const [filtroKpi, setFiltroKpi] = useState('todos');
+    const [busquedaCliente, setBusquedaCliente] = useState('');
+    const [busquedaObservacion, setBusquedaObservacion] = useState('');
     const [fechaInicio, setFechaInicio] = useState('');
     const [fechaFin, setFechaFin] = useState('');
 
@@ -28,49 +31,92 @@ const AdminDashboard = () => {
         fetchData();
     }, []);
 
-    // 1. Filtrado dinámico
+    // 1. Filtrado Dinámico Multicriterio (Añadido: KPI, Cliente y Observación)
     const datosFiltrados = useMemo(() => {
         return registros.filter(r => {
             const cumpleAsesor = filtroAsesor === 'todos' || r.asesor_nombre === filtroAsesor;
-            const cumpleFecha = (!fechaInicio || r.fecha >= fechaInicio) && 
-                               (!fechaFin || r.fecha <= fechaFin);
-            return cumpleAsesor && cumpleFecha;
+            const cumpleKpi = filtroKpi === 'todos' || r.kpi === filtroKpi;
+            const cumpleCliente = (r.nombre_comercial || r.razon_social || '').toLowerCase().includes(busquedaCliente.toLowerCase());
+            const cumpleObs = (r.desarrollo_visita || '').toLowerCase().includes(busquedaObservacion.toLowerCase());
+            const cumpleFecha = (!fechaInicio || r.fecha_ingreso >= fechaInicio) && 
+                               (!fechaFin || r.fecha_ingreso <= fechaFin);
+            
+            return cumpleAsesor && cumpleKpi && cumpleCliente && cumpleObs && cumpleFecha;
         });
-    }, [registros, filtroAsesor, fechaInicio, fechaFin]);
+    }, [registros, filtroAsesor, filtroKpi, busquedaCliente, busquedaObservacion, fechaInicio, fechaFin]);
 
-    // 2. Agregación por Cliente (Razón Social) - Enfocado en DINERO
-    const dataClientes = useMemo(() => {
+    const limpiarFiltros = () => {
+        setFiltroAsesor('todos');
+        setFiltroKpi('todos');
+        setBusquedaCliente('');
+        setBusquedaObservacion('');
+        setFechaInicio('');
+        setFechaFin('');
+    };
+
+    // Función de descarga completa con todos los campos
+    const descargarCSV = () => {
+        if (datosFiltrados.length === 0) return alert("No hay datos para exportar");
+        
+        const headers = [
+            "ID", "Fecha Ingreso", "Hora Ingreso", "Asesor", "KPI", "Razon Social", 
+            "Nombre Comercial", "A Quien Visito", "Telefono", "Area", 
+            "Venta ($)", "Cobro ($)", "Clientes Nuevos", "Prospectos", 
+            "Clientes Visitados", "Llamadas Clientes", "Llamadas Cobranza", 
+            "Viajes ($)", "Alimentacion ($)", "Desarrollo Visita", "Pendientes", "Proxima Visita"
+        ];
+
+        const rows = datosFiltrados.map(r => [
+            r.id, r.fecha_ingreso, r.hora_ingreso, r.asesor_nombre, r.kpi, 
+            `"${r.razon_social || ''}"`, `"${r.nombre_comercial || ''}"`, `"${r.a_quien_visito || ''}"`,
+            r.telefono || '', r.area || '', r.us_venta, r.us_cobro, 
+            r.clientes_nuevos, r.prospectos_new, r.num_clientes_visitados, 
+            r.llamadas_clientes, r.llamadas_cobranzas, r.viajes, r.alimentacion, 
+            `"${(r.desarrollo_visita || '').replace(/"/g, '""')}"`, 
+            `"${(r.pendientes || '').replace(/"/g, '""')}"`, r.fecha_prox_visita || ''
+        ]);
+
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Reporte_Completo_CasaLinda_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const dataKpiAsesores = useMemo(() => {
         const temp = {};
         datosFiltrados.forEach(r => {
-            const key = r.nombre_comercial || r.razon_social || "Sin Nombre";
+            const key = r.asesor_nombre;
             if (!temp[key]) {
-                temp[key] = { 
-                    name: key, 
-                    ventas: 0, 
-                    cobros: 0, 
-                    visitas: 0 
-                };
+                temp[key] = { name: key, ventas: 0, cierres: 0, prospectos: 0, llamadas: 0, viaticos: 0, visitados: 0 };
             }
             temp[key].ventas += parseFloat(r.us_venta || 0);
-            temp[key].cobros += parseFloat(r.us_cobro || 0);
-            temp[key].visitas += 1;
+            temp[key].cierres += parseInt(r.clientes_nuevos || 0);
+            temp[key].prospectos += parseInt(r.prospectos_new || 0);
+            temp[key].visitados += parseInt(r.num_clientes_visitados || 0);
+            temp[key].llamadas += (parseInt(r.llamadas_clientes || 0) + parseInt(r.llamadas_cobranzas || 0));
+            temp[key].viaticos += (parseFloat(r.viajes || 0) + parseFloat(r.alimentacion || 0));
         });
-        return Object.values(temp).sort((a, b) => b.ventas - a.ventas); // Ordenar por mejores ventas
+        return Object.values(temp);
     }, [datosFiltrados]);
 
     const listaNombresAsesores = useMemo(() => [...new Set(registros.map(r => r.asesor_nombre))], [registros]);
-    const COLORS = ['#2563eb', '#10b981']; // Azul para Ventas, Verde para Cobros
+    const listaKpis = useMemo(() => [...new Set(registros.map(r => r.kpi))], [registros]);
+    const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
     return (
-        <div style={{ padding: '30px', background: '#f1f5f9', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
-            
-            {/* PANEL DE CONTROL SUPERIOR */}
+        <div style={{ padding: '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
+            {/* PANEL DE CONTROL SUPERIOR CON FILTROS */}
             <div style={headerStyle}>
-                <div>
-                    <h1 style={{ color: '#0f172a', margin: 0, fontSize: '24px' }}>Centro de Mando Casa Linda</h1>
-                    <p style={{ color: '#64748b', fontSize: '14px' }}>Seguimiento Comercial y Recuperación de Cartera</p>
+                <div style={{ marginBottom: '20px' }}>
+                    <h1 style={{ color: '#0f172a', margin: 0, fontSize: '26px' }}>Dashboard Estratégico Casa Linda</h1>
+                    <p style={{ color: '#64748b' }}>Control Integral de Gestión y KPIs</p>
                 </div>
-                <div style={filterGroupStyle}>
+                
+                <div style={filterGridStyle}>
                     <div style={filterItem}>
                         <label>Asesor</label>
                         <select value={filtroAsesor} onChange={(e) => setFiltroAsesor(e.target.value)} style={inputStyle}>
@@ -79,99 +125,145 @@ const AdminDashboard = () => {
                         </select>
                     </div>
                     <div style={filterItem}>
-                        <label>Rango de Fechas</label>
+                        <label>KPI</label>
+                        <select value={filtroKpi} onChange={(e) => setFiltroKpi(e.target.value)} style={inputStyle}>
+                            <option value="todos">Todos los KPIs</option>
+                            {listaKpis.map(k => <option key={k} value={k}>{k}</option>)}
+                        </select>
+                    </div>
+                    <div style={filterItem}>
+                        <label>Buscar Cliente</label>
+                        <input type="text" placeholder="Nombre..." value={busquedaCliente} onChange={(e) => setBusquedaCliente(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div style={filterItem}>
+                        <label>Observación</label>
+                        <input type="text" placeholder="Palabra clave..." value={busquedaObservacion} onChange={(e) => setBusquedaObservacion(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div style={filterItem}>
+                        <label>Fechas</label>
                         <div style={{ display: 'flex', gap: '5px' }}>
                             <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} style={inputStyle} />
                             <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} style={inputStyle} />
                         </div>
                     </div>
+                    <div style={{ ...filterItem, justifyContent: 'flex-end' }}>
+                        <button onClick={limpiarFiltros} style={clearBtnStyle}>Limpiar Filtros</button>
+                    </div>
                 </div>
             </div>
 
-            {/* INDICADORES CLAVE (Financieros) */}
             <div style={kpiGrid}>
-                <KPICard title="Venta Total" value={`$${dataClientes.reduce((a,b)=>a+b.ventas,0).toLocaleString()}`} sub="Monto facturado" color="#2563eb" />
-                <KPICard title="Cobro Realizado" value={`$${dataClientes.reduce((a,b)=>a+b.cobros,0).toLocaleString()}`} sub="Recuperación de cartera" color="#16a34a" />
-                <KPICard title="Efectividad" value={`${((dataClientes.reduce((a,b)=>a+b.cobros,0) / dataClientes.reduce((a,b)=>a+b.ventas,1)) * 100).toFixed(1)}%`} sub="Cobro vs Venta" color="#8b5cf6" />
-                <KPICard title="Total Gestiones" value={datosFiltrados.length} sub="Visitas/Llamadas" color="#64748b" />
+                <KPICard title="Venta Total" value={`$${dataKpiAsesores.reduce((a,b)=>a+b.ventas,0).toLocaleString()}`} color="#2563eb" />
+                <KPICard title="Cierres Nuevos" value={dataKpiAsesores.reduce((a,b)=>a+b.cierres,0)} color="#10b981" />
+                <KPICard title="Cobertura (Visitas)" value={dataKpiAsesores.reduce((a,b)=>a+b.visitados,0)} color="#06b6d4" />
+                <KPICard title="Gasto Operativo" value={`$${dataKpiAsesores.reduce((a,b)=>a+b.viaticos,0).toLocaleString()}`} color="#ef4444" />
             </div>
 
-            {/* SECCIÓN DE GRÁFICOS */}
             <div style={mainGrid}>
-                {/* 1. Comparativa Venta vs Cobro por Cliente */}
                 <div style={chartCard}>
-                    <h3 style={chartTitle}>Top 10 Clientes: Ventas vs Cobros ($)</h3>
-                    <ResponsiveContainer width="100%" height={350}>
-                        <BarChart data={dataClientes.slice(0, 10)}>
+                    <h3 style={chartTitle}>Visitas vs Cierres</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={dataKpiAsesores}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" tick={{fontSize: 10}} interval={0} />
-                            <YAxis />
-                            <Tooltip formatter={(value) => `$${value}`} />
-                            <Legend />
-                            <Bar dataKey="ventas" fill="#2563eb" name="Venta ($)" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="cobros" fill="#10b981" name="Cobro ($)" radius={[4, 4, 0, 0]} />
+                            <XAxis dataKey="name" /> <YAxis /> <Tooltip /> <Legend />
+                            <Bar dataKey="visitados" fill="#06b6d4" name="Visitados" />
+                            <Bar dataKey="cierres" fill="#10b981" name="Cierres" />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
 
-                {/* 2. Distribución de Carga de Trabajo (KPIs) */}
                 <div style={chartCard}>
-                    <h3 style={chartTitle}>Composición de la Gestión</h3>
-                    <ResponsiveContainer width="100%" height={350}>
+                    <h3 style={chartTitle}>Desempeño de Prospectos</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <ComposedChart data={dataKpiAsesores}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" /> <YAxis /> <Tooltip /> <Legend />
+                            <Bar dataKey="cierres" fill="#8b5cf6" name="Cierres" />
+                            <Line type="monotone" dataKey="prospectos" stroke="#f59e0b" strokeWidth={3} name="Prospectos" />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div style={chartCard}>
+                    <h3 style={chartTitle}>Gestión Telefónica</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <AreaChart data={dataKpiAsesores}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" /> <YAxis /> <Tooltip />
+                            <Area type="monotone" dataKey="llamadas" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Llamadas" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div style={chartCard}>
+                    <h3 style={chartTitle}>Distribución de Viáticos ($)</h3>
+                    <ResponsiveContainer width="100%" height={250}>
                         <PieChart>
                             <Pie 
-                                data={[
-                                    { name: 'Visitas', value: datosFiltrados.filter(r => r.kpi === 'VISITAS DIARIAS').length },
-                                    { name: 'Llamadas Cobro', value: datosFiltrados.filter(r => r.kpi === 'LLAMADAS COBRANZA').length },
-                                    { name: 'Otros', value: datosFiltrados.filter(r => r.kpi !== 'VISITAS DIARIAS' && r.kpi !== 'LLAMADAS COBRANZA').length },
-                                ]} 
-                                cx="50%" cy="50%" outerRadius={100} dataKey="value" label
+                                data={dataKpiAsesores.map(a => ({ name: a.name, value: a.viaticos }))}
+                                cx="50%" cy="50%" outerRadius={80} dataKey="value" label
                             >
-                                <Cell fill="#2563eb" />
-                                <Cell fill="#f43f5e" />
-                                <Cell fill="#64748b" />
+                                {dataKpiAsesores.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
                             </Pie>
-                            <Tooltip /> <Legend />
+                            <Tooltip />
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
             </div>
 
-            {/* TABLA DE AUDITORÍA (Ajustada a la nueva DB) */}
             <div style={tableCard}>
-                <h3 style={{ marginBottom: '20px', color: '#1e293b' }}>Registro Detallado de Visitas y Cobranzas</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0 }}>Registro Maestro Detallado ({datosFiltrados.length})</h3>
+                    <button onClick={descargarCSV} style={downloadBtnStyle}>
+                        📥 Exportar Selección a CSV
+                    </button>
+                </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={tableStyle}>
                         <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                                <th style={thStyle}>Fecha</th>
+                            <tr style={{ background: '#f8fafc' }}>
+                                <th style={thStyle}>Fecha/Hora</th>
                                 <th style={thStyle}>Asesor</th>
-                                <th style={thStyle}>Cliente / Contacto</th>
-                                <th style={thStyle}>Gestión Realizada</th>
-                                <th style={thStyle}>Venta ($)</th>
-                                <th style={thStyle}>Cobro ($)</th>
-                                <th style={thStyle}>Próxima Visita</th>
-                                <th style={thStyle}>Pendientes</th>
+                                <th style={thStyle}>Cliente / Info</th>
+                                <th style={thStyle}>Gestión (KPI)</th>
+                                <th style={thStyle}>Resultados Financieros</th>
+                                <th style={thStyle}>Métricas de Cantidad</th>
+                                <th style={thStyle}>Viáticos</th>
+                                <th style={thStyle}>Detalle / Pendientes</th>
                             </tr>
                         </thead>
                         <tbody>
                             {datosFiltrados.map((r, i) => (
                                 <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={tdStyle}>{r.fecha}<br/><small>{r.hora}</small></td>
+                                    <td style={tdStyle}>
+                                        <div style={{fontWeight:'bold'}}>{r.fecha_ingreso}</div>
+                                        <div style={{fontSize:'11px', color:'#64748b'}}>{r.hora_ingreso}</div>
+                                    </td>
                                     <td style={tdStyle}><strong>{r.asesor_nombre}</strong></td>
                                     <td style={tdStyle}>
-                                        {r.nombre_comercial}<br/>
-                                        <small style={{color: '#64748b'}}>{r.a_quien_visito}</small>
+                                        <div style={{fontWeight:'600'}}>{r.nombre_comercial || r.razon_social}</div>
+                                        <div style={{fontSize:'11px'}}>{r.a_quien_visito} ({r.area})</div>
+                                        <div style={{fontSize:'11px', color:'#2563eb'}}>{r.telefono}</div>
+                                    </td>
+                                    <td style={tdStyle}><span style={badgeStyle}>{r.kpi}</span></td>
+                                    <td style={tdStyle}>
+                                        <div style={{color: '#2563eb'}}>Venta: ${r.us_venta}</div>
+                                        <div style={{color: '#10b981'}}>Cobro: ${r.us_cobro}</div>
                                     </td>
                                     <td style={tdStyle}>
-                                        <span style={{ ...badgeStyle, background: r.kpi.includes('COBRANZA') ? '#fff1f2' : '#dbeafe', color: r.kpi.includes('COBRANZA') ? '#be123c' : '#1e40af' }}>
-                                            {r.kpi}
-                                        </span>
+                                        <div style={{fontSize:'12px'}}>CN: {r.clientes_nuevos} | P: {r.prospectos_new}</div>
+                                        <div style={{fontSize:'12px'}}>Visitados: {r.num_clientes_visitados}</div>
                                     </td>
-                                    <td style={{...tdStyle, fontWeight: 'bold', color: '#1e40af'}}>${parseFloat(r.us_venta || 0).toFixed(2)}</td>
-                                    <td style={{...tdStyle, fontWeight: 'bold', color: '#15803d'}}>${parseFloat(r.us_cobro || 0).toFixed(2)}</td>
-                                    <td style={tdStyle}>{r.fecha_prox_visita || 'N/A'}</td>
-                                    <td style={{...tdStyle, color: '#dc2626', fontSize: '11px', maxWidth: '200px'}}>{r.pendientes || '-'}</td>
+                                    <td style={tdStyle}>
+                                        <div style={{fontSize:'12px'}}>Vj: ${r.viajes} | Al: ${r.alimentacion}</div>
+                                    </td>
+                                    <td style={{...tdStyle, maxWidth: '250px'}}>
+                                        <div style={{fontSize:'11px', marginBottom:'2px'}}><strong>Obs:</strong> {r.desarrollo_visita}</div>
+                                        <div style={{fontSize:'11px', color:'#ef4444'}}><strong>Pend:</strong> {r.pendientes}</div>
+                                        {r.fecha_prox_visita && <div style={{fontSize:'10px', color:'#2563eb'}}>Prox: {r.fecha_prox_visita}</div>}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -182,28 +274,27 @@ const AdminDashboard = () => {
     );
 };
 
-// COMPONENTES DE APOYO
-const KPICard = ({ title, value, sub, color }) => (
-    <div style={{ background: '#fff', padding: '20px', borderRadius: '16px', borderLeft: `6px solid ${color}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-        <p style={{ margin: 0, color: '#64748b', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' }}>{title}</p>
-        <h2 style={{ margin: '8px 0', fontSize: '24px', color: '#1e293b', fontWeight: '800' }}>{value}</h2>
-        <span style={{ fontSize: '11px', color: '#94a3b8' }}>{sub}</span>
+// Estilos
+const badgeStyle = { background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', color: '#475569' };
+const KPICard = ({ title, value, color }) => (
+    <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', borderLeft: `5px solid ${color}`, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <p style={{ margin: 0, color: '#64748b', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}>{title}</p>
+        <h2 style={{ margin: '5px 0', fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>{value}</h2>
     </div>
 );
-
-// ESTILOS (IDEM ANTERIOR CON AJUSTES)
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px', background: '#fff', padding: '20px', borderRadius: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' };
-const filterGroupStyle = { display: 'flex', gap: '20px' };
-const filterItem = { display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12px', color: '#475569', fontWeight: 'bold' };
-const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', outline: 'none' };
-const kpiGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '35px' };
-const mainGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '25px' };
-const chartCard = { background: '#fff', padding: '25px', borderRadius: '20px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' };
-const chartTitle = { fontSize: '15px', color: '#334155', marginBottom: '20px', fontWeight: '700' };
-const tableCard = { background: '#fff', padding: '25px', borderRadius: '20px', marginTop: '35px' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse' };
-const thStyle = { padding: '12px', textAlign: 'left', color: '#475569', fontSize: '11px', textTransform: 'uppercase' };
-const tdStyle = { padding: '12px', color: '#1e293b', fontSize: '12px' };
-const badgeStyle = { padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' };
+const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' };
+const filterItem = { display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12px', fontWeight: 'bold', color: '#475569' };
+const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '13px' };
+const clearBtnStyle = { padding: '8px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' };
+const headerStyle = { display: 'flex', flexDirection: 'column', marginBottom: '25px', background: '#fff', padding: '25px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' };
+const kpiGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '25px' };
+const mainGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '25px' };
+const chartCard = { background: '#fff', padding: '20px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };
+const chartTitle = { fontSize: '15px', marginBottom: '15px', color: '#1e293b', fontWeight: 'bold' };
+const tableCard = { background: '#fff', padding: '25px', borderRadius: '15px', marginTop: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };
+const tableStyle = { width: '100%', borderCollapse: 'collapse', minWidth: '1100px' };
+const thStyle = { padding: '12px', textAlign: 'left', fontSize: '11px', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #f1f5f9' };
+const tdStyle = { padding: '15px 12px', fontSize: '12px', verticalAlign: 'top' };
+const downloadBtnStyle = { padding: '10px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' };
 
 export default AdminDashboard;
