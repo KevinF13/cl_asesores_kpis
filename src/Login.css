@@ -1,0 +1,139 @@
+.login-wrapper{
+        min-height:100vh;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:24px;
+}
+
+/* Theme variables */
+:root{
+    --bg-1: #e9f2f8;
+    --bg-2: #f4f7f6;
+    --card:#ffffff;
+    --accent-start:#0066d6;
+    --accent-end:#00c4a7;
+    --muted:#7b8790;
+    --radius:14px;
+    --shadow: 0 16px 40px rgba(16,24,40,0.08);
+    --glass: rgba(255,255,255,0.6);
+    --transition: 260ms cubic-bezier(.2,.9,.2,1);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+    margin:0;
+    font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: radial-gradient(800px 400px at 10% 10%, rgba(0,198,167,0.06), transparent),
+                            linear-gradient(180deg,var(--bg-1) 0%, var(--bg-2) 100%);
+    -webkit-font-smoothing:antialiased;
+    color:#0b2130;
+}
+
+/* Card */
+.login-box{
+        width:100%;
+        max-width:420px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.95));
+        padding:36px;
+        border-radius:var(--radius);
+        box-shadow:var(--shadow);
+        text-align:center;
+        border:1px solid rgba(12,20,30,0.04);
+        transition:transform var(--transition), box-shadow var(--transition);
+        transform:translateY(0);
+        will-change:transform;
+}
+
+/* subtle float on load */
+@keyframes lift {
+    0%{ transform: translateY(10px); opacity:0 }
+    60%{ transform: translateY(-4px); opacity:1 }
+    100%{ transform: translateY(0); opacity:1 }
+}
+.login-box{ animation: lift 560ms cubic-bezier(.2,.85,.2,1) both }
+
+/* Inputs */
+.login-box input{
+        width:100%;
+        padding:12px 14px;
+        margin:12px 0;
+        border:1px solid #e1e6ea;
+        border-radius:10px;
+        background:transparent;
+        transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
+        font-size:0.95rem;
+        color:inherit;
+        outline:none;
+        box-sizing:border-box;
+}
+
+/* input focus */
+.login-box input:focus{
+        border-color: rgba(0,102,214,0.14);
+        box-shadow: 0 8px 24px rgba(3,102,214,0.06);
+        transform: translateY(-2px);
+}
+
+/* placeholder muted */
+.login-box input::placeholder{ color:var(--muted) }
+
+/* Button */
+.login-box button{
+        width:100%;
+        padding:12px;
+        margin-top:8px;
+        background: linear-gradient(90deg,var(--accent-start), var(--accent-end));
+        color: white;
+        border: none;
+        border-radius:10px;
+        cursor: pointer;
+        font-weight:700;
+        box-shadow: 0 10px 30px rgba(0,102,214,0.12);
+        transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+}
+
+/* Button hover/active */
+.login-box button:disabled{ opacity:0.6; cursor:not-allowed; transform:none }
+
+/* Password toggle button (override full-width button rule) */
+.login-box .password-toggle{
+    position:absolute;
+    right:8px;
+    top:50%;
+    transform:translateY(-50%);
+    background:transparent;
+    border:none;
+    color:var(--accent-start);
+    cursor:pointer;
+    font-weight:700;
+    padding:6px;
+    width:auto;
+    margin:0;
+    box-shadow:none;
+}
+.login-box .password-toggle:hover{ color:var(--accent-end) }
+
+/* Heading / helpers */
+.login-box h2{ margin:0 0 12px; font-size:1.25rem; color:#062235 }
+.login-box p{ margin:0 0 18px; color:var(--muted); font-size:0.95rem }
+
+/* Small accent badge example */
+.login-box .badge{ display:inline-block;padding:6px 10px;border-radius:999px;background:linear-gradient(90deg, rgba(0,198,167,0.08), rgba(0,102,214,0.06)); color:var(--accent-start); font-weight:700; font-size:0.8rem }
+
+/* Responsive tweaks */
+@media (max-width:480px){
+    .login-box{ padding:20px; border-radius:12px; max-width:360px }
+    .login-box h2{ font-size:1.05rem }
+    .login-box input{ padding:10px }
+    .login-wrapper{ padding:16px }
+}
+
+/* Focus visible */
+:focus-visible{ outline:3px solid rgba(0,198,167,0.12); outline-offset:3px; border-radius:8px }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce){
+    .login-box, .login-box *{ animation:none !important; transition:none !important }
+}

@@ -1,107 +1,112 @@
-/* Variables para colores corporativos */
 :root {
-    --primary-blue: #0056b3;
-    --bg-gray: #f4f7f6;
-    --text-dark: #333;
-    --border-color: #ddd;
+    --primary-color: #0056b3;
+    --success-color: #28a745;
+    --bg-light: #f8f9fa;
+    --text-main: #2d3748;
+    --border-radius: 12px;
 }
 
-body {
-    background-color: var(--bg-gray);
-    margin: 0;
-    padding: 0;
+.form-container {
+    max-width: 900px; /* Un poco más ancho para los campos de texto */
+    margin: 20px auto;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: var(--border-radius);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-.container {
-    width: 95%;
-    max-width: 1000px;
-    margin: 1rem auto;
-    padding: 1.5rem;
-    background: #fff;
-    border-radius: 15px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    box-sizing: border-box;
-}
-
-.title {
-    font-size: 1.5rem;
-    color: var(--primary-blue);
+.form-header {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 30px;
+    border-bottom: 2px solid var(--bg-light);
+    padding-bottom: 15px;
 }
 
-.kpi-form {
+.form-header h2 { color: var(--primary-color); margin: 0; }
+.form-header p { color: #718096; margin-top: 5px; }
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Dos columnas base */
+    gap: 20px;
+}
+
+.field-group {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 8px;
 }
 
-/* Diseño para tablets y laptops */
-@media (min-width: 768px) {
-    .kpi-form {
-        display: grid;
-        grid-template-columns: 1fr 1fr; /* Dos columnas */
-        gap: 20px;
-    }
-    
-    .full-width {
-        grid-column: span 2;
-    }
-    
-    .title {
-        font-size: 2rem;
-    }
+.field-group label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    text-transform: uppercase;
 }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-group label {
-    font-size: 0.9rem;
-    font-weight: bold;
-    margin-bottom: 5px;
-    color: var(--text-dark);
-}
-
-.form-group input, 
-.form-group select, 
-.form-group textarea {
+.field-group input, .field-group select, .field-group textarea {
     padding: 12px;
-    font-size: 1rem; /* Evita zoom automático en iPhone */
-    border: 1px solid var(--border-color);
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
-    width: 100%;
-    box-sizing: border-box;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.field-group input:focus, .field-group textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0,86,179,0.1);
+    outline: none;
 }
 
 .readonly-field {
-    background-color: #e9ecef;
-    color: #6c757d;
-    border: 1px solid #ced4da;
+    background-color: #edf2f7;
+    color: #718096;
+    cursor: not-allowed;
 }
 
-/* Estilo del botón */
-.submit-btn {
-    background-color: var(--primary-blue);
-    color: white;
+.full-width { grid-column: 1 / -1; }
+
+.section-title {
+    grid-column: 1 / -1;
+    margin-top: 25px;
+    padding: 12px;
+    background: #ebf4ff;
+    border-left: 4px solid var(--primary-color);
+    border-radius: 4px;
+    font-size: 0.95rem;
+    color: var(--primary-color);
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.btn-submit {
+    grid-column: 1 / -1;
+    margin-top: 30px;
     padding: 18px;
+    background-color: var(--primary-color);
+    color: white;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--border-radius);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
-    margin-top: 10px;
-    transition: transform 0.2s, background 0.3s;
+    transition: all 0.3s;
 }
 
-.submit-btn:active {
-    transform: scale(0.98); /* Feedback visual al tocar en móviles */
+.btn-submit:hover { 
+    background-color: #004494;
+    transform: translateY(-2px);
 }
 
-@media (min-width: 768px) {
-    .submit-btn {
-        grid-column: span 2;
+.btn-submit:disabled {
+    background-color: #cbd5e0;
+    cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
     }
+    .form-container { padding: 15px; margin: 10px; }
 }
