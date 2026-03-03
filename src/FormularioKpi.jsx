@@ -122,6 +122,10 @@ const FormularioKpi = () => {
                             <input type="text" name="a_quien_visito" value={formData.a_quien_visito} onChange={handleChange} />
                         </div>
                         <div className="field-group">
+                            <label>Área</label>
+                            <input type="text" name="area" value={formData.area} onChange={handleChange} />
+                        </div>
+                        <div className="field-group">
                             <label>Teléfono de Contacto</label>
                             <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} />
                         </div>
