@@ -31,7 +31,7 @@ const AdminDashboard = () => {
         fetchData();
     }, []);
 
-    // 1. Filtrado Dinámico Multicriterio (Añadido: KPI, Cliente y Observación)
+    // 1. Filtrado Dinámico Multicriterio
     const datosFiltrados = useMemo(() => {
         return registros.filter(r => {
             const cumpleAsesor = filtroAsesor === 'todos' || r.asesor_nombre === filtroAsesor;
@@ -45,6 +45,13 @@ const AdminDashboard = () => {
         });
     }, [registros, filtroAsesor, filtroKpi, busquedaCliente, busquedaObservacion, fechaInicio, fechaFin]);
 
+    // NUEVO: Cálculo de rango de fechas para mostrar en el KPI
+    const rangoFechasTexto = useMemo(() => {
+        if (datosFiltrados.length === 0) return "Sin datos";
+        const fechas = datosFiltrados.map(r => r.fecha_ingreso).sort();
+        return `${fechas[0]} al ${fechas[fechas.length - 1]}`;
+    }, [datosFiltrados]);
+
     const limpiarFiltros = () => {
         setFiltroAsesor('todos');
         setFiltroKpi('todos');
@@ -54,7 +61,6 @@ const AdminDashboard = () => {
         setFechaFin('');
     };
 
-    // Función de descarga completa con todos los campos
     const descargarCSV = () => {
         if (datosFiltrados.length === 0) return alert("No hay datos para exportar");
         
@@ -91,9 +97,10 @@ const AdminDashboard = () => {
         datosFiltrados.forEach(r => {
             const key = r.asesor_nombre;
             if (!temp[key]) {
-                temp[key] = { name: key, ventas: 0, cierres: 0, prospectos: 0, llamadas: 0, viaticos: 0, visitados: 0 };
+                temp[key] = { name: key, ventas: 0, cobros: 0, cierres: 0, prospectos: 0, llamadas: 0, viaticos: 0, visitados: 0 };
             }
             temp[key].ventas += parseFloat(r.us_venta || 0);
+            temp[key].cobros += parseFloat(r.us_cobro || 0);
             temp[key].cierres += parseInt(r.clientes_nuevos || 0);
             temp[key].prospectos += parseInt(r.prospectos_new || 0);
             temp[key].visitados += parseInt(r.num_clientes_visitados || 0);
@@ -103,6 +110,22 @@ const AdminDashboard = () => {
         return Object.values(temp);
     }, [datosFiltrados]);
 
+    const totalesGlobales = useMemo(() => {
+        const v = dataKpiAsesores.reduce((a, b) => a + b.ventas, 0);
+        const c = dataKpiAsesores.reduce((a, b) => a + b.cierres, 0);
+        const vis = dataKpiAsesores.reduce((a, b) => a + b.visitados, 0);
+        return {
+            ventaTotal: v,
+            cobroTotal: dataKpiAsesores.reduce((a, b) => a + b.cobros, 0),
+            cierresNuevos: c,
+            visitasTotales: vis,
+            gastoTotal: dataKpiAsesores.reduce((a, b) => a + b.viaticos, 0),
+            llamadasTotales: dataKpiAsesores.reduce((a, b) => a + b.llamadas, 0),
+            eficaciaCierre: vis > 0 ? ((c / vis) * 100).toFixed(1) : 0,
+            ticketPromedio: c > 0 ? (v / c).toFixed(2) : 0
+        };
+    }, [dataKpiAsesores]);
+
     const listaNombresAsesores = useMemo(() => [...new Set(registros.map(r => r.asesor_nombre))], [registros]);
     const listaKpis = useMemo(() => [...new Set(registros.map(r => r.kpi))], [registros]);
     const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -111,9 +134,15 @@ const AdminDashboard = () => {
         <div style={{ padding: '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
             {/* PANEL DE CONTROL SUPERIOR CON FILTROS */}
             <div style={headerStyle}>
-                <div style={{ marginBottom: '20px' }}>
-                    <h1 style={{ color: '#0f172a', margin: 0, fontSize: '26px' }}>Dashboard Estratégico Casa Linda</h1>
-                    <p style={{ color: '#64748b' }}>Control Integral de Gestión y KPIs</p>
+                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h1 style={{ color: '#0f172a', margin: 0, fontSize: '26px' }}>Dashboard Estratégico Casa Linda</h1>
+                        <p style={{ color: '#64748b', margin: '5px 0' }}>Control Integral de Gestión y KPIs</p>
+                        <span style={{ fontSize: '12px', background: '#e2e8f0', padding: '4px 10px', borderRadius: '15px', fontWeight: 'bold' }}>
+                            📅 Periodo: {rangoFechasTexto}
+                        </span>
+                    </div>
+                    <button onClick={descargarCSV} style={downloadBtnStyle}>📥 Exportar Selección a CSV</button>
                 </div>
                 
                 <div style={filterGridStyle}>
@@ -140,7 +169,7 @@ const AdminDashboard = () => {
                         <input type="text" placeholder="Palabra clave..." value={busquedaObservacion} onChange={(e) => setBusquedaObservacion(e.target.value)} style={inputStyle} />
                     </div>
                     <div style={filterItem}>
-                        <label>Fechas</label>
+                        <label>Fechas Filtro</label>
                         <div style={{ display: 'flex', gap: '5px' }}>
                             <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} style={inputStyle} />
                             <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} style={inputStyle} />
@@ -153,15 +182,19 @@ const AdminDashboard = () => {
             </div>
 
             <div style={kpiGrid}>
-                <KPICard title="Venta Total" value={`$${dataKpiAsesores.reduce((a,b)=>a+b.ventas,0).toLocaleString()}`} color="#2563eb" />
-                <KPICard title="Cierres Nuevos" value={dataKpiAsesores.reduce((a,b)=>a+b.cierres,0)} color="#10b981" />
-                <KPICard title="Cobertura (Visitas)" value={dataKpiAsesores.reduce((a,b)=>a+b.visitados,0)} color="#06b6d4" />
-                <KPICard title="Gasto Operativo" value={`$${dataKpiAsesores.reduce((a,b)=>a+b.viaticos,0).toLocaleString()}`} color="#ef4444" />
+                <KPICard title="Venta Total" value={`$${totalesGlobales.ventaTotal.toLocaleString()}`} color="#2563eb" />
+                <KPICard title="Cobro Total" value={`$${totalesGlobales.cobroTotal.toLocaleString()}`} color="#10b981" />
+                <KPICard title="Cierres Nuevos" value={totalesGlobales.cierresNuevos} color="#8b5cf6" />
+                <KPICard title="Eficacia Cierre" value={`${totalesGlobales.eficaciaCierre}%`} color="#f59e0b" subtitle="Cierres vs Visitas" />
+                <KPICard title="Ticket Promedio" value={`$${totalesGlobales.ticketPromedio}`} color="#ec4899" subtitle="Venta / Cierres" />
+                <KPICard title="Cobertura (Visitas)" value={totalesGlobales.visitasTotales} color="#06b6d4" />
+                <KPICard title="Total Llamadas" value={totalesGlobales.llamadasTotales} color="#64748b" />
+                <KPICard title="Gasto Operativo" value={`$${totalesGlobales.gastoTotal.toLocaleString()}`} color="#ef4444" />
             </div>
 
             <div style={mainGrid}>
                 <div style={chartCard}>
-                    <h3 style={chartTitle}>Visitas vs Cierres</h3>
+                    <h3 style={chartTitle}>Visitas vs Cierres por Asesor</h3>
                     <ResponsiveContainer width="100%" height={250}>
                         <BarChart data={dataKpiAsesores}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -185,7 +218,7 @@ const AdminDashboard = () => {
                 </div>
 
                 <div style={chartCard}>
-                    <h3 style={chartTitle}>Gestión Telefónica</h3>
+                    <h3 style={chartTitle}>Gestión Telefónica por Asesor</h3>
                     <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={dataKpiAsesores}>
                             <CartesianGrid strokeDasharray="3 3" />
@@ -214,12 +247,7 @@ const AdminDashboard = () => {
             </div>
 
             <div style={tableCard}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0 }}>Registro Maestro Detallado ({datosFiltrados.length})</h3>
-                    <button onClick={descargarCSV} style={downloadBtnStyle}>
-                        📥 Exportar Selección a CSV
-                    </button>
-                </div>
+                <h3 style={{ margin: '0 0 20px 0' }}>Registro Maestro Detallado ({datosFiltrados.length})</h3>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={tableStyle}>
                         <thead>
@@ -276,18 +304,19 @@ const AdminDashboard = () => {
 
 // Estilos
 const badgeStyle = { background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', color: '#475569' };
-const KPICard = ({ title, value, color }) => (
-    <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', borderLeft: `5px solid ${color}`, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-        <p style={{ margin: 0, color: '#64748b', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}>{title}</p>
-        <h2 style={{ margin: '5px 0', fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>{value}</h2>
+const KPICard = ({ title, value, color, subtitle }) => (
+    <div style={{ background: '#fff', padding: '15px 20px', borderRadius: '12px', borderLeft: `5px solid ${color}`, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <p style={{ margin: 0, color: '#64748b', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>{title}</p>
+        <h2 style={{ margin: '5px 0', fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>{value}</h2>
+        {subtitle && <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>{subtitle}</p>}
     </div>
 );
-const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' };
+const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '15px' };
 const filterItem = { display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12px', fontWeight: 'bold', color: '#475569' };
 const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '13px' };
 const clearBtnStyle = { padding: '8px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' };
 const headerStyle = { display: 'flex', flexDirection: 'column', marginBottom: '25px', background: '#fff', padding: '25px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' };
-const kpiGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '25px' };
+const kpiGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px', marginBottom: '25px' };
 const mainGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '25px' };
 const chartCard = { background: '#fff', padding: '20px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };
 const chartTitle = { fontSize: '15px', marginBottom: '15px', color: '#1e293b', fontWeight: 'bold' };

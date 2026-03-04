@@ -31,7 +31,7 @@ function App() {
     <div className="App">
       <header style={{
           padding: '15px', 
-          background: '#0056b3', 
+          background: '#2a6784', 
           color: 'white', 
           display: 'flex', 
           justifyContent: 'space-between',
@@ -39,7 +39,7 @@ function App() {
           boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
       }}>
         <strong style={{marginLeft: '10px'}}>
-          🚀 Casa Linda - Panel {user.rol.toUpperCase()}
+          Casa Linda - Panel {user.rol.toUpperCase()}
         </strong>
         <button 
             onClick={handleLogout} 

@@ -203,7 +203,7 @@ const FormularioKpi = () => {
                     </div>
                 )}
 
-                {/* --- SECCIÓN DE CIERRE Y SEGUIMIENTO --- */}
+                
                 {!['VIAJES', 'ALIMENTACION'].includes(formData.kpi) && (
                     <>
                         <div className="section-title">Seguimiento y Compromisos</div>
@@ -231,3 +231,5 @@ const FormularioKpi = () => {
 };
 
 export default FormularioKpi;
+
+
