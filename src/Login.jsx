@@ -1,6 +1,8 @@
 ﻿import React, { useState } from 'react';
 import './Login.css';
 
+const API_URL = process.env.REACT_APP_API_URL;
+
 const Login = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -18,7 +20,9 @@ const Login = ({ onLogin }) => {
         formData.append('password', password);
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/token', {
+            console.log('API_URL:', API_URL);
+
+            const response = await fetch(`${API_URL}/token`, {
                 method: 'POST',
                 body: formData,
             });
@@ -28,10 +32,13 @@ const Login = ({ onLogin }) => {
 
                 localStorage.setItem('token', data.access_token);
                 localStorage.setItem('rol', data.rol);
+                localStorage.setItem('nombre', data.nombre);
 
-                onLogin({ rol: data.rol });
+                onLogin({ rol: data.rol, nombre: data.nombre });
             } else {
-                setError('⚠️ Credenciales incorrectas.');
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Error login:', errorData);
+                setError(errorData.detail || '⚠️ Credenciales incorrectas.');
             }
         } catch (err) {
             console.error('Error conectando al servidor:', err);

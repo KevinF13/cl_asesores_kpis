@@ -13,11 +13,22 @@ const AdminDashboard = () => {
     const [fechaInicio, setFechaInicio] = useState('');
     const [fechaFin, setFechaFin] = useState('');
 
+    // --- AGREGADO PARA RESPONSIVIDAD ---
+    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+    useEffect(() => {
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    const isMobile = windowWidth < 768;
+    const isTablet = windowWidth >= 768 && windowWidth < 1024;
+    // -----------------------------------
+
     useEffect(() => {
         const fetchData = async () => {
             const token = localStorage.getItem('token');
             try {
-                const res = await fetch('http://localhost:8000/api/admin/kpis', {
+                const res = await fetch(`${process.env.REACT_APP_API_URL}/api/admin/kpis`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -31,7 +42,6 @@ const AdminDashboard = () => {
         fetchData();
     }, []);
 
-    // 1. Filtrado Dinámico Multicriterio
     const datosFiltrados = useMemo(() => {
         return registros.filter(r => {
             const cumpleAsesor = filtroAsesor === 'todos' || r.asesor_nombre === filtroAsesor;
@@ -45,7 +55,6 @@ const AdminDashboard = () => {
         });
     }, [registros, filtroAsesor, filtroKpi, busquedaCliente, busquedaObservacion, fechaInicio, fechaFin]);
 
-    // NUEVO: Cálculo de rango de fechas para mostrar en el KPI
     const rangoFechasTexto = useMemo(() => {
         if (datosFiltrados.length === 0) return "Sin datos";
         const fechas = datosFiltrados.map(r => r.fecha_ingreso).sort();
@@ -131,21 +140,21 @@ const AdminDashboard = () => {
     const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
     return (
-        <div style={{ padding: '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
-            {/* PANEL DE CONTROL SUPERIOR CON FILTROS */}
-            <div style={headerStyle}>
-                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: isMobile ? '10px' : '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
+            
+            <div style={{...headerStyle, padding: isMobile ? '15px' : '25px'}}>
+                <div style={{ marginBottom: '20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '15px' }}>
                     <div>
-                        <h1 style={{ color: '#0f172a', margin: 0, fontSize: '26px' }}>Dashboard Estratégico Casa Linda</h1>
+                        <h1 style={{ color: '#0f172a', margin: 0, fontSize: isMobile ? '20px' : '26px' }}>Dashboard Estratégico Casa Linda</h1>
                         <p style={{ color: '#64748b', margin: '5px 0' }}>Control Integral de Gestión y KPIs</p>
                         <span style={{ fontSize: '12px', background: '#e2e8f0', padding: '4px 10px', borderRadius: '15px', fontWeight: 'bold' }}>
                             📅 Periodo: {rangoFechasTexto}
                         </span>
                     </div>
-                    <button onClick={descargarCSV} style={downloadBtnStyle}>📥 Exportar Selección a CSV</button>
+                    <button onClick={descargarCSV} style={{ ...downloadBtnStyle, width: isMobile ? '100%' : 'auto' }}>📥 Exportar Selección a CSV</button>
                 </div>
                 
-                <div style={filterGridStyle}>
+                <div style={{ ...filterGridStyle, gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(140px, 1fr))') }}>
                     <div style={filterItem}>
                         <label>Asesor</label>
                         <select value={filtroAsesor} onChange={(e) => setFiltroAsesor(e.target.value)} style={inputStyle}>
@@ -171,34 +180,39 @@ const AdminDashboard = () => {
                     <div style={filterItem}>
                         <label>Fechas Filtro</label>
                         <div style={{ display: 'flex', gap: '5px' }}>
-                            <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} style={inputStyle} />
-                            <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} style={inputStyle} />
+                            <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} style={{ ...inputStyle, padding: '8px 4px' }} />
+                            <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} style={{ ...inputStyle, padding: '8px 4px' }} />
                         </div>
                     </div>
                     <div style={{ ...filterItem, justifyContent: 'flex-end' }}>
-                        <button onClick={limpiarFiltros} style={clearBtnStyle}>Limpiar Filtros</button>
+                        <button onClick={limpiarFiltros} style={{ ...clearBtnStyle, width: '100%' }}>Limpiar Filtros</button>
                     </div>
                 </div>
             </div>
 
-            <div style={kpiGrid}>
-                <KPICard title="Venta Total" value={`$${totalesGlobales.ventaTotal.toLocaleString()}`} color="#2563eb" />
-                <KPICard title="Cobro Total" value={`$${totalesGlobales.cobroTotal.toLocaleString()}`} color="#10b981" />
-                <KPICard title="Cierres Nuevos" value={totalesGlobales.cierresNuevos} color="#8b5cf6" />
-                <KPICard title="Eficacia Cierre" value={`${totalesGlobales.eficaciaCierre}%`} color="#f59e0b" subtitle="Cierres vs Visitas" />
-                <KPICard title="Ticket Promedio" value={`$${totalesGlobales.ticketPromedio}`} color="#ec4899" subtitle="Venta / Cierres" />
-                <KPICard title="Cobertura (Visitas)" value={totalesGlobales.visitasTotales} color="#06b6d4" />
-                <KPICard title="Total Llamadas" value={totalesGlobales.llamadasTotales} color="#64748b" />
-                <KPICard title="Gasto Operativo" value={`$${totalesGlobales.gastoTotal.toLocaleString()}`} color="#ef4444" />
+            {/* SECCIÓN ACTUALIZADA: 2 COLUMNAS EN MÓVIL */}
+            <div style={{ 
+                ...kpiGrid, 
+                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(180px, 1fr))'),
+                gap: isMobile ? '10px' : '15px' 
+            }}>
+                <KPICard title="Venta Total" value={`$${totalesGlobales.ventaTotal.toLocaleString()}`} color="#2563eb" isMobile={isMobile} />
+                <KPICard title="Cobro Total" value={`$${totalesGlobales.cobroTotal.toLocaleString()}`} color="#10b981" isMobile={isMobile} />
+                <KPICard title="Cierres Nuevos" value={totalesGlobales.cierresNuevos} color="#8b5cf6" isMobile={isMobile} />
+                <KPICard title="Eficacia Cierre" value={`${totalesGlobales.eficaciaCierre}%`} color="#f59e0b" subtitle="Cierres vs Visitas" isMobile={isMobile} />
+                <KPICard title="Ticket Promedio" value={`$${totalesGlobales.ticketPromedio}`} color="#ec4899" subtitle="Venta / Cierres" isMobile={isMobile} />
+                <KPICard title="Cobertura (Visitas)" value={totalesGlobales.visitasTotales} color="#06b6d4" isMobile={isMobile} />
+                <KPICard title="Total Llamadas" value={totalesGlobales.llamadasTotales} color="#64748b" isMobile={isMobile} />
+                <KPICard title="Gasto Operativo" value={`$${totalesGlobales.gastoTotal.toLocaleString()}`} color="#ef4444" isMobile={isMobile} />
             </div>
 
-            <div style={mainGrid}>
+            <div style={{ ...mainGrid, gridTemplateColumns: isMobile ? '1fr' : (isTablet ? '1fr' : 'repeat(auto-fit, minmax(400px, 1fr))') }}>
                 <div style={chartCard}>
                     <h3 style={chartTitle}>Visitas vs Cierres por Asesor</h3>
                     <ResponsiveContainer width="100%" height={250}>
                         <BarChart data={dataKpiAsesores}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" /> <YAxis /> <Tooltip /> <Legend />
+                            <XAxis dataKey="name" fontSize={12} /> <YAxis fontSize={12} /> <Tooltip /> <Legend />
                             <Bar dataKey="visitados" fill="#06b6d4" name="Visitados" />
                             <Bar dataKey="cierres" fill="#10b981" name="Cierres" />
                         </BarChart>
@@ -210,7 +224,7 @@ const AdminDashboard = () => {
                     <ResponsiveContainer width="100%" height={250}>
                         <ComposedChart data={dataKpiAsesores}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" /> <YAxis /> <Tooltip /> <Legend />
+                            <XAxis dataKey="name" fontSize={12} /> <YAxis fontSize={12} /> <Tooltip /> <Legend />
                             <Bar dataKey="cierres" fill="#8b5cf6" name="Cierres" />
                             <Line type="monotone" dataKey="prospectos" stroke="#f59e0b" strokeWidth={3} name="Prospectos" />
                         </ComposedChart>
@@ -222,7 +236,7 @@ const AdminDashboard = () => {
                     <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={dataKpiAsesores}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" /> <YAxis /> <Tooltip />
+                            <XAxis dataKey="name" fontSize={12} /> <YAxis fontSize={12} /> <Tooltip />
                             <Area type="monotone" dataKey="llamadas" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Llamadas" />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -234,7 +248,7 @@ const AdminDashboard = () => {
                         <PieChart>
                             <Pie 
                                 data={dataKpiAsesores.map(a => ({ name: a.name, value: a.viaticos }))}
-                                cx="50%" cy="50%" outerRadius={80} dataKey="value" label
+                                cx="50%" cy="50%" outerRadius={isMobile ? 60 : 80} dataKey="value" label={!isMobile}
                             >
                                 {dataKpiAsesores.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -248,7 +262,7 @@ const AdminDashboard = () => {
 
             <div style={tableCard}>
                 <h3 style={{ margin: '0 0 20px 0' }}>Registro Maestro Detallado ({datosFiltrados.length})</h3>
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     <table style={tableStyle}>
                         <thead>
                             <tr style={{ background: '#f8fafc' }}>
@@ -287,7 +301,7 @@ const AdminDashboard = () => {
                                     <td style={tdStyle}>
                                         <div style={{fontSize:'12px'}}>Vj: ${r.viajes} | Al: ${r.alimentacion}</div>
                                     </td>
-                                    <td style={{...tdStyle, maxWidth: '250px'}}>
+                                    <td style={{...tdStyle, minWidth: '200px', maxWidth: '300px'}}>
                                         <div style={{fontSize:'11px', marginBottom:'2px'}}><strong>Obs:</strong> {r.desarrollo_visita}</div>
                                         <div style={{fontSize:'11px', color:'#ef4444'}}><strong>Pend:</strong> {r.pendientes}</div>
                                         {r.fecha_prox_visita && <div style={{fontSize:'10px', color:'#2563eb'}}>Prox: {r.fecha_prox_visita}</div>}
@@ -302,26 +316,39 @@ const AdminDashboard = () => {
     );
 };
 
-// Estilos
-const badgeStyle = { background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', color: '#475569' };
-const KPICard = ({ title, value, color, subtitle }) => (
-    <div style={{ background: '#fff', padding: '15px 20px', borderRadius: '12px', borderLeft: `5px solid ${color}`, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-        <p style={{ margin: 0, color: '#64748b', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>{title}</p>
-        <h2 style={{ margin: '5px 0', fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>{value}</h2>
-        {subtitle && <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>{subtitle}</p>}
+// Estilos base y Componente KPICard con soporte para móvil
+const badgeStyle = { background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', color: '#475569', display: 'inline-block' };
+
+const KPICard = ({ title, value, color, subtitle, isMobile }) => (
+    <div style={{ 
+        background: '#fff', 
+        padding: isMobile ? '12px 15px' : '15px 20px', 
+        borderRadius: '12px', 
+        borderLeft: `5px solid ${color}`, 
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)', 
+        height: '100%', 
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center'
+    }}>
+        <p style={{ margin: 0, color: '#64748b', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>{title}</p>
+        <h2 style={{ margin: '5px 0', fontSize: isMobile ? '16px' : '20px', fontWeight: '800', color: '#1e293b' }}>{value}</h2>
+        {subtitle && !isMobile && <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>{subtitle}</p>}
     </div>
 );
-const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '15px' };
+
+const filterGridStyle = { display: 'grid', gap: '15px' };
 const filterItem = { display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12px', fontWeight: 'bold', color: '#475569' };
-const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '13px' };
+const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '13px', width: '100%', boxSizing: 'border-box' };
 const clearBtnStyle = { padding: '8px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' };
 const headerStyle = { display: 'flex', flexDirection: 'column', marginBottom: '25px', background: '#fff', padding: '25px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' };
-const kpiGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px', marginBottom: '25px' };
-const mainGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '25px' };
-const chartCard = { background: '#fff', padding: '20px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };
+const kpiGrid = { display: 'grid', marginBottom: '25px' };
+const mainGrid = { display: 'grid', gap: '25px' };
+const chartCard = { background: '#fff', padding: '20px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', minWidth: 0 };
 const chartTitle = { fontSize: '15px', marginBottom: '15px', color: '#1e293b', fontWeight: 'bold' };
 const tableCard = { background: '#fff', padding: '25px', borderRadius: '15px', marginTop: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse', minWidth: '1100px' };
+const tableStyle = { width: '100%', borderCollapse: 'collapse', minWidth: '1000px' };
 const thStyle = { padding: '12px', textAlign: 'left', fontSize: '11px', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #f1f5f9' };
 const tdStyle = { padding: '15px 12px', fontSize: '12px', verticalAlign: 'top' };
 const downloadBtnStyle = { padding: '10px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' };
